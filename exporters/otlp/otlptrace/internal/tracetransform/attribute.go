@@ -26,9 +26,21 @@ func KeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
 		return nil
 	}
 
-	out := make([]*commonpb.KeyValue, 0, len(attrs))
+	// filter out attributes by matching key
+	spaceCounter := 0
 	for _, kv := range attrs {
-		out = append(out, KeyValue(kv))
+		if kv.Key == "test1" {
+			spaceCounter++
+		}
+	}
+
+	out := make([]*commonpb.KeyValue, 0, spaceCounter)
+
+	// out := make([]*commonpb.KeyValue, 0, len(attrs))
+	for _, kv := range attrs { // test if key in the filter
+		if kv.Key == "test1" {
+			out = append(out, KeyValue(kv))
+		}
 	}
 	return out
 }
