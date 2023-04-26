@@ -111,7 +111,7 @@ func span(sd tracesdk.ReadOnlySpan) *tracepb.Span {
 		Links:                  links(sd.Links()),
 		Kind:                   spanKind(sd.SpanKind()),
 		Name:                   sd.Name(),
-		Attributes:             KeyValues(sd.Attributes()),
+		Attributes:             FilteredKeyValues(sd.Attributes()),
 		Events:                 spanEvents(sd.Events()),
 		DroppedAttributesCount: uint32(sd.DroppedAttributes()),
 		DroppedEventsCount:     uint32(sd.DroppedEvents()),

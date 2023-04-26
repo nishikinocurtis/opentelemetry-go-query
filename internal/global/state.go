@@ -16,6 +16,7 @@ package global // import "go.opentelemetry.io/otel/internal/global"
 
 import (
 	"errors"
+	"go.opentelemetry.io/otel/attribute"
 	"sync"
 	"sync/atomic"
 
@@ -31,14 +32,20 @@ type (
 	propagatorsHolder struct {
 		tm propagation.TextMapPropagator
 	}
+
+	traceAttributeFilterHolder struct {
+		taf attribute.TraceAttributeFilter
+	}
 )
 
 var (
-	globalTracer      = defaultTracerValue()
-	globalPropagators = defaultPropagatorsValue()
+	globalTracer          = defaultTracerValue()
+	globalPropagators     = defaultPropagatorsValue()
+	globalAttributeFilter = defaultAttributeFilterValue()
 
 	delegateTraceOnce             sync.Once
 	delegateTextMapPropagatorOnce sync.Once
+	// currently no need to delegate the traceAttributeFilter
 )
 
 // TracerProvider is the internal implementation for global.TracerProvider.
@@ -102,6 +109,17 @@ func SetTextMapPropagator(p propagation.TextMapPropagator) {
 	globalPropagators.Store(propagatorsHolder{tm: p})
 }
 
+// TraceAttributeFilter is the internal implementation for global.TraceAttributeFilter.
+func TraceAttributeFilter() attribute.TraceAttributeFilter {
+	return globalAttributeFilter.Load().(traceAttributeFilterHolder).taf
+}
+
+// SetTraceAttributeFilter is the internal implementation for global.SetTraceAttributeFilter.
+// TODO: Currently no need to delegate the traceAttributeFilter, no implementation.
+func SetTraceAttributeFilter(taf attribute.TraceAttributeFilter) {
+	return
+}
+
 func defaultTracerValue() *atomic.Value {
 	v := &atomic.Value{}
 	v.Store(tracerProviderHolder{tp: &tracerProvider{}})
@@ -111,5 +129,11 @@ func defaultTracerValue() *atomic.Value {
 func defaultPropagatorsValue() *atomic.Value {
 	v := &atomic.Value{}
 	v.Store(propagatorsHolder{tm: newTextMapPropagator()})
+	return v
+}
+
+func defaultAttributeFilterValue() *atomic.Value {
+	v := &atomic.Value{}
+	v.Store(traceAttributeFilterHolder{taf: newTraceAttributeFilter()})
 	return v
 }

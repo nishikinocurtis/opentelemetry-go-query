@@ -12,13 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Last Modified by Qiutong Men 2023 April 25.
+
 package tracetransform // import "go.opentelemetry.io/otel/exporters/otlp/otlptrace/internal/tracetransform"
 
 import (
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/internal/global"
 	"go.opentelemetry.io/otel/sdk/resource"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 )
+
+const DEFAULT_INITIAL_FILTER_CAPACITY = 5
 
 // KeyValues transforms a slice of attribute KeyValues into OTLP key-values.
 func KeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
@@ -27,18 +32,35 @@ func KeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
 	}
 
 	// filter out attributes by matching key
-	spaceCounter := 0
-	for _, kv := range attrs {
-		if kv.Key == "test1" {
-			spaceCounter++
-		}
-	}
+	//spaceCounter := 0
+	//for _, kv := range attrs {
+	//	if kv.Key == "test1" {
+	//		spaceCounter++
+	//	}
+	//}
 
-	out := make([]*commonpb.KeyValue, 0, spaceCounter)
+	// out := make([]*commonpb.KeyValue, 0, spaceCounter)
 
-	// out := make([]*commonpb.KeyValue, 0, len(attrs))
+	out := make([]*commonpb.KeyValue, 0, len(attrs))
 	for _, kv := range attrs { // test if key in the filter
-		if kv.Key == "test1" {
+		// if kv.Key == "test1" {
+		out = append(out, KeyValue(kv))
+		// }
+	}
+	return out
+}
+
+// FilteredKeyValues transforms a slice of attribute KeyValues into OTLP key-values that match the global filter.
+func FilteredKeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
+	if len(attrs) == 0 {
+		return nil
+	}
+	// TODO: filter out attributes by matching key
+	// return KeyValues(attrs)
+	out := make([]*commonpb.KeyValue, 0, DEFAULT_INITIAL_FILTER_CAPACITY)
+
+	for _, kv := range attrs {
+		if global.TraceAttributeFilter().Match(kv.Key, kv.Value) {
 			out = append(out, KeyValue(kv))
 		}
 	}

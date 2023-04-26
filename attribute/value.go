@@ -58,6 +58,11 @@ const (
 	STRINGSLICE
 )
 
+// InvalidValue create a INVALID Value.
+func InvalidValue() Value {
+	return Value{vtype: INVALID}
+}
+
 // BoolValue creates a BOOL Value.
 func BoolValue(v bool) Value {
 	return Value{
