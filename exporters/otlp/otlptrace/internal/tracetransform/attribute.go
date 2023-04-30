@@ -20,6 +20,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/internal/global"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 )
 
@@ -31,21 +32,9 @@ func KeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
 		return nil
 	}
 
-	// filter out attributes by matching key
-	//spaceCounter := 0
-	//for _, kv := range attrs {
-	//	if kv.Key == "test1" {
-	//		spaceCounter++
-	//	}
-	//}
-
-	// out := make([]*commonpb.KeyValue, 0, spaceCounter)
-
 	out := make([]*commonpb.KeyValue, 0, len(attrs))
-	for _, kv := range attrs { // test if key in the filter
-		// if kv.Key == "test1" {
+	for _, kv := range attrs {
 		out = append(out, KeyValue(kv))
-		// }
 	}
 	return out
 }
@@ -55,15 +44,18 @@ func FilteredKeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
 	if len(attrs) == 0 {
 		return nil
 	}
-	// TODO: filter out attributes by matching key
-	// return KeyValues(attrs)
+
+	if global.FilterConfigFlags()&sdktrace.AttributeFilter == 0 {
+		// don't to filter, let all traces go.
+		return KeyValues(attrs)
+	}
 	out := make([]*commonpb.KeyValue, 0, DEFAULT_INITIAL_FILTER_CAPACITY)
 
-	for _, kv := range attrs {
-		if global.TraceAttributeFilter().Match(kv.Key, kv.Value) {
-			out = append(out, KeyValue(kv))
-		}
-	}
+	global.TraceAttributeFilter().BatchMatch(attrs,
+		func(attr attribute.KeyValue) error {
+			out = append(out, KeyValue(attr))
+			return nil
+		})
 	return out
 }
 

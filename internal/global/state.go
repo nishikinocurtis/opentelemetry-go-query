@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 
 	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,12 +37,17 @@ type (
 	traceAttributeFilterHolder struct {
 		taf attribute.TraceAttributeFilter
 	}
+
+	filterConfigFlagsHolder struct {
+		filterConfigFlag sdktrace.FilterConfigFlag
+	}
 )
 
 var (
-	globalTracer          = defaultTracerValue()
-	globalPropagators     = defaultPropagatorsValue()
-	globalAttributeFilter = defaultAttributeFilterValue()
+	globalTracer            = defaultTracerValue()
+	globalPropagators       = defaultPropagatorsValue()
+	globalAttributeFilter   = defaultAttributeFilterValue()
+	globalFilterConfigFlags = defaultFilterConfigFlagsValue()
 
 	delegateTraceOnce             sync.Once
 	delegateTextMapPropagatorOnce sync.Once
@@ -120,6 +126,14 @@ func SetTraceAttributeFilter(taf attribute.TraceAttributeFilter) {
 	return
 }
 
+func FilterConfigFlags() sdktrace.FilterConfigFlag {
+	return globalFilterConfigFlags.Load().(filterConfigFlagsHolder).filterConfigFlag
+}
+
+func SetFilterConfigFlags(filterConfigFlag sdktrace.FilterConfigFlag) {
+	globalFilterConfigFlags.Store(filterConfigFlagsHolder{filterConfigFlag: filterConfigFlag})
+}
+
 func defaultTracerValue() *atomic.Value {
 	v := &atomic.Value{}
 	v.Store(tracerProviderHolder{tp: &tracerProvider{}})
@@ -135,5 +149,11 @@ func defaultPropagatorsValue() *atomic.Value {
 func defaultAttributeFilterValue() *atomic.Value {
 	v := &atomic.Value{}
 	v.Store(traceAttributeFilterHolder{taf: newTraceAttributeFilter()})
+	return v
+}
+
+func defaultFilterConfigFlagsValue() *atomic.Value {
+	v := &atomic.Value{}
+	v.Store(filterConfigFlagsHolder{filterConfigFlag: 0})
 	return v
 }

@@ -1,6 +1,7 @@
 // Qiutong Men 2023 April. 25
 
 package attribute // import "go.opentelemetry.io/otel/attribute"
+import "net/http"
 
 type MatchValueFlag int
 
@@ -16,6 +17,10 @@ type TraceAttributeFilter interface {
 	AddKeyMatch(key Key)
 	RemoveMatch(key Key)
 	Match(key Key, value Value) bool
+	BatchMatch(attrs []KeyValue, callback func(KeyValue) error)
+	BatchNotMatch(attrs []KeyValue, callback func() error)
+	Clear()
+	HandleRequest(req *http.Request) error
 }
 
 type TraceAttributeValueMatch struct {
@@ -55,15 +60,13 @@ func (f *mapTraceAttributeFilter) AddRangeMatch(key Key, lb Value, ub Value) {
 	// check if lb <= ub
 	if lb.Type() == INT64 {
 		if lb.AsInt64() > ub.AsInt64() {
-			// logging illegal type
-			println("Illegal type: lower bound must be less than or equal to upper bound")
-			return
+			// reverse the order of lb and ub
+			f.matches[key] = TraceAttributeValueMatch{RANGE, ub, lb}
 		}
 	} else {
 		if lb.AsFloat64() > ub.AsFloat64() {
-			// logging illegal type
-			println("Illegal type: lower bound must be less than or equal to upper bound")
-			return
+			// reverse the order of lb and ub
+			f.matches[key] = TraceAttributeValueMatch{RANGE, ub, lb}
 		}
 	}
 
@@ -109,7 +112,66 @@ func (f *mapTraceAttributeFilter) RemoveMatch(key Key) {
 
 // Match returns true if the key-value pair matches the filter
 func (f *mapTraceAttributeFilter) Match(key Key, value Value) bool {
-	return true
+	if match, ok := f.matches[key]; ok {
+		switch match.mvf {
+		case NoValue:
+			return true
+		case EQUALITY:
+			return match.lb == value
+		case RANGE:
+			if value.Type() == INT64 && match.lb.Type() == INT64 {
+				return match.lb.AsInt64() <= value.AsInt64() &&
+					value.AsInt64() <= match.ub.AsInt64()
+			} else if value.Type() == FLOAT64 && match.lb.Type() == FLOAT64 {
+				return match.lb.AsFloat64() <= value.AsFloat64() &&
+					value.AsFloat64() <= match.ub.AsFloat64()
+			}
+		}
+	}
+	return false
+}
+
+// Clear clears all filters
+func (f *mapTraceAttributeFilter) Clear() {
+	// directly assign a new map to the map, the old map will be garbage collected
+	f.matches = make(map[Key]TraceAttributeValueMatch)
+}
+
+// HandleRequest execute the filter operations and returns an error if the request is unsupported
+// No effect as base type
+func (f *mapTraceAttributeFilter) HandleRequest(req *http.Request) error {
+	return nil
+}
+
+// BatchMatch execute callback for all attributes matching one filter
+func (f *mapTraceAttributeFilter) BatchMatch(attrs []KeyValue, callback func(KeyValue) error) {
+	for _, attr := range attrs {
+		if f.Match(attr.Key, attr.Value) {
+			err := callback(attr)
+			if err != nil {
+				return
+			}
+		}
+	}
+}
+
+// BatchNotMatch execute callback if any existing filter is not matched, callback is executed only once
+func (f *mapTraceAttributeFilter) BatchNotMatch(attrs []KeyValue, callback func() error) {
+	matchTarget := len(f.matches)
+	for _, attr := range attrs {
+		if _, ok := f.matches[attr.Key]; !ok {
+			return
+		}
+		if f.Match(attr.Key, attr.Value) {
+			matchTarget--
+		}
+	}
+	if matchTarget != 0 {
+		if err := callback(); err != nil {
+			println("Error in callback function in BatchNotMatch: ", err.Error())
+			return
+		}
+	}
 }
 
 func NewMapTraceAttributeFilter() TraceAttributeFilter {

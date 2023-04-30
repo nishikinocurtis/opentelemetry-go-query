@@ -17,11 +17,29 @@ package tracetransform // import "go.opentelemetry.io/otel/exporters/otlp/otlptr
 import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/internal/global"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
+
+func filterSpan(sd tracesdk.ReadOnlySpan) bool {
+	// do structural, event, attribute matching here, if false, dropped
+	var matched = true
+	flg := global.FilterConfigFlags() // atomic load, in one filtering pass, don't change
+	if flg&tracesdk.AttributeNotMatchFullTraceFilter != 0 {
+		global.TraceAttributeFilter().BatchNotMatch(sd.Attributes(), func() error {
+			matched = false
+			return nil
+		})
+	}
+	if flg&tracesdk.StructuralTraceFilter != 0 {
+		//TODO: do structural matching here, if false, drop
+	}
+
+	return matched
+}
 
 // Spans transforms a slice of OpenTelemetry spans into a slice of OTLP
 // ResourceSpans.
@@ -41,6 +59,11 @@ func Spans(sdl []tracesdk.ReadOnlySpan) []*tracepb.ResourceSpans {
 	var resources int
 	for _, sd := range sdl {
 		if sd == nil {
+			continue
+		}
+
+		// do structural, event, attribute matching here, if false, dropped
+		if !filterSpan(sd) {
 			continue
 		}
 
