@@ -1,4 +1,4 @@
-package trace
+package global // import "go.opentelemetry.io/otel/internal/global"
 
 type FilterConfigFlag int
 

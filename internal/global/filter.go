@@ -34,6 +34,12 @@ type traceAttributeFilter struct {
 
 var _ attribute.TraceAttributeFilter = (*traceAttributeFilter)(nil)
 
+func newTraceEventFilter() *traceAttributeFilter {
+	return &traceAttributeFilter{
+		taf: attribute.NewMapTraceAttributeFilter(),
+	}
+}
+
 func newTraceAttributeFilter() *traceAttributeFilter {
 	return &traceAttributeFilter{
 		taf: attribute.NewMapTraceAttributeFilter(),
@@ -98,11 +104,11 @@ func (t *traceAttributeFilter) updateFilter(ufrs updateFilterRequests) error {
 				// for int64 type filter, depending on the number of values, either equality or range match is used
 				if len(filter.Values) == 1 {
 					t.taf.AddEqualityMatch(filter.Key,
-						attribute.Int64Value(filter.Values[0].(int64)))
+						attribute.Int64Value(int64(filter.Values[0].(float64))))
 				} else {
 					t.taf.AddRangeMatch(filter.Key,
-						attribute.Int64Value(filter.Values[0].(int64)),
-						attribute.Int64Value(filter.Values[1].(int64)))
+						attribute.Int64Value(int64(filter.Values[0].(float64))),
+						attribute.Int64Value(int64(filter.Values[1].(float64))))
 				}
 			case "float64":
 				// for float64 type filter, depending on the number of values, either equality or range match is used

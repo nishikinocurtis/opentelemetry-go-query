@@ -21,7 +21,6 @@ import (
 	"sync/atomic"
 
 	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -38,8 +37,12 @@ type (
 		taf attribute.TraceAttributeFilter
 	}
 
+	traceEventFilterHolder struct {
+		tef attribute.TraceAttributeFilter
+	}
+
 	filterConfigFlagsHolder struct {
-		filterConfigFlag sdktrace.FilterConfigFlag
+		filterConfigFlag FilterConfigFlag
 	}
 )
 
@@ -48,6 +51,7 @@ var (
 	globalPropagators       = defaultPropagatorsValue()
 	globalAttributeFilter   = defaultAttributeFilterValue()
 	globalFilterConfigFlags = defaultFilterConfigFlagsValue()
+	globalEventFilter       = defaultEventFilterValue()
 
 	delegateTraceOnce             sync.Once
 	delegateTextMapPropagatorOnce sync.Once
@@ -120,17 +124,22 @@ func TraceAttributeFilter() attribute.TraceAttributeFilter {
 	return globalAttributeFilter.Load().(traceAttributeFilterHolder).taf
 }
 
+// TraceEventFilter is the internal implementation for global.TraceAttributeFilter, but only contains event names.
+func TraceEventFilter() attribute.TraceAttributeFilter {
+	return globalEventFilter.Load().(traceAttributeFilterHolder).taf
+}
+
 // SetTraceAttributeFilter is the internal implementation for global.SetTraceAttributeFilter.
 // TODO: Currently no need to delegate the traceAttributeFilter, no implementation.
 func SetTraceAttributeFilter(taf attribute.TraceAttributeFilter) {
 	return
 }
 
-func FilterConfigFlags() sdktrace.FilterConfigFlag {
+func FilterConfigFlags() FilterConfigFlag {
 	return globalFilterConfigFlags.Load().(filterConfigFlagsHolder).filterConfigFlag
 }
 
-func SetFilterConfigFlags(filterConfigFlag sdktrace.FilterConfigFlag) {
+func SetFilterConfigFlags(filterConfigFlag FilterConfigFlag) {
 	globalFilterConfigFlags.Store(filterConfigFlagsHolder{filterConfigFlag: filterConfigFlag})
 }
 
@@ -149,6 +158,12 @@ func defaultPropagatorsValue() *atomic.Value {
 func defaultAttributeFilterValue() *atomic.Value {
 	v := &atomic.Value{}
 	v.Store(traceAttributeFilterHolder{taf: newTraceAttributeFilter()})
+	return v
+}
+
+func defaultEventFilterValue() *atomic.Value {
+	v := &atomic.Value{}
+	v.Store(traceEventFilterHolder{tef: newTraceEventFilter()})
 	return v
 }
 

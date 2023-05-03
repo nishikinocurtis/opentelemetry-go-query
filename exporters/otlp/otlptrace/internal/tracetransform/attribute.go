@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/internal/global"
 	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 )
 
@@ -45,7 +44,7 @@ func FilteredKeyValues(attrs []attribute.KeyValue) []*commonpb.KeyValue {
 		return nil
 	}
 
-	if global.FilterConfigFlags()&sdktrace.AttributeFilter == 0 {
+	if global.FilterConfigFlags()&global.AttributeFilter == 0 {
 		// don't to filter, let all traces go.
 		return KeyValues(attrs)
 	}

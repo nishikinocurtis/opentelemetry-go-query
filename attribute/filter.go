@@ -157,19 +157,23 @@ func (f *mapTraceAttributeFilter) BatchMatch(attrs []KeyValue, callback func(Key
 
 // BatchNotMatch execute callback if any existing filter is not matched, callback is executed only once
 func (f *mapTraceAttributeFilter) BatchNotMatch(attrs []KeyValue, callback func() error) {
-	matchTarget := len(f.matches)
+	matchedTarget := len(f.matches)
 	for _, attr := range attrs {
 		if _, ok := f.matches[attr.Key]; !ok {
-			return
+			continue
 		}
-		if f.Match(attr.Key, attr.Value) {
-			matchTarget--
+		if !f.Match(attr.Key, attr.Value) {
+			if err := callback(); err != nil {
+				println("Error in callback function of BatchNotMatch: ", err.Error())
+			}
+			return
+		} else {
+			matchedTarget--
 		}
 	}
-	if matchTarget != 0 {
+	if matchedTarget != 0 {
 		if err := callback(); err != nil {
-			println("Error in callback function in BatchNotMatch: ", err.Error())
-			return
+			println("Error in callback function of BatchNotMatch: ", err.Error())
 		}
 	}
 }

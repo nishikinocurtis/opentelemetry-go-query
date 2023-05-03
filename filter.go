@@ -18,3 +18,23 @@ func GetTraceAttributeFilter() attribute.TraceAttributeFilter {
 func SetTraceAttributeFilter(f attribute.TraceAttributeFilter) {
 	global.SetTraceAttributeFilter(f)
 }
+
+func WithAttributeFilter() global.FilterConfigFlag {
+	return global.AttributeFilter
+}
+
+func WithAttributeNotMatchFullTraceFilter() global.FilterConfigFlag {
+	return global.AttributeNotMatchFullTraceFilter
+}
+
+func WithStructuralTraceFilter() global.FilterConfigFlag {
+	return global.StructuralTraceFilter
+}
+
+func SetAttributeFilterConfig(flags ...global.FilterConfigFlag) {
+	var flag global.FilterConfigFlag = 0
+	for _, f := range flags {
+		flag |= f
+	}
+	global.SetFilterConfigFlags(flag)
+}

@@ -24,17 +24,19 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
+const DEFAULT_INITIAL_EVENT_CAPACITY = 5
+
 func filterSpan(sd tracesdk.ReadOnlySpan) bool {
 	// do structural, event, attribute matching here, if false, dropped
 	var matched = true
 	flg := global.FilterConfigFlags() // atomic load, in one filtering pass, don't change
-	if flg&tracesdk.AttributeNotMatchFullTraceFilter != 0 {
+	if flg&global.AttributeNotMatchFullTraceFilter != 0 {
 		global.TraceAttributeFilter().BatchNotMatch(sd.Attributes(), func() error {
 			matched = false
 			return nil
 		})
 	}
-	if flg&tracesdk.StructuralTraceFilter != 0 {
+	if flg&global.StructuralTraceFilter != 0 {
 		//TODO: do structural matching here, if false, drop
 	}
 
@@ -135,7 +137,7 @@ func span(sd tracesdk.ReadOnlySpan) *tracepb.Span {
 		Kind:                   spanKind(sd.SpanKind()),
 		Name:                   sd.Name(),
 		Attributes:             FilteredKeyValues(sd.Attributes()),
-		Events:                 spanEvents(sd.Events()),
+		Events:                 FilteredSpanEvents(sd.Events()),
 		DroppedAttributesCount: uint32(sd.DroppedAttributes()),
 		DroppedEventsCount:     uint32(sd.DroppedEvents()),
 		DroppedLinksCount:      uint32(sd.DroppedLinks()),
@@ -207,6 +209,26 @@ func spanEvents(es []tracesdk.Event) []*tracepb.Span_Event {
 		}
 	}
 	return events
+}
+
+// FilteredSpanEvents let events with designated names pass through.
+func FilteredSpanEvents(es []tracesdk.Event) []*tracepb.Span_Event {
+	if len(es) == 0 {
+		return nil
+	}
+
+	out := make([]*tracepb.Span_Event, 0, DEFAULT_INITIAL_EVENT_CAPACITY)
+	for _, e := range es {
+		if global.TraceEventFilter().Match(attribute.Key(e.Name), attribute.InvalidValue()) {
+			out = append(out, &tracepb.Span_Event{
+				Name:                   e.Name,
+				TimeUnixNano:           uint64(e.Time.UnixNano()),
+				Attributes:             KeyValues(e.Attributes),
+				DroppedAttributesCount: uint32(e.DroppedAttributeCount),
+			})
+		}
+	}
+	return out
 }
 
 // spanKind transforms a SpanKind to an OTLP span kind.
